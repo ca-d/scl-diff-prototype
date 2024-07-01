@@ -1,0 +1,4 @@
+#!/bin/sh
+
+rm -rf out
+clj -M --main cljs.main --compile cljs.user --repl
