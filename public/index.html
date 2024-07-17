@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/css/main.css">
+  <title>Browser Starter</title>
+</head>
+<body>
+  <h1>shadow-cljs repl dev environment</h1>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <script type="module">
+    import * as m from './js/scl.js';
+    const doc = new DOMParser().parseFromString(await fetch('./sample.scd').then(r => r.text()), 'application/xml');
+    console.time()
+    const d = m.sclDomToEdn(doc);
+    window.d = d;
+    window.m = m;
+    console.timeEnd()
+  </script>
+</body>
+</html>

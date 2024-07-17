@@ -1,0 +1,10 @@
+;; shadow-cljs configuration
+{:builds
+   {:app {:asset-path "/js",
+          :modules {:scl {:exports {domToEdn openscd.scl/domToEdn,
+                                    sclDomToEdn openscd.scl/sclDomToEdn}}},
+          :output-dir "public/js",
+          :target :esm}},
+ :dependencies [],
+ :dev-http {8020 "public"},
+ :source-paths ["src/dev" "src/main" "src/test"]}
