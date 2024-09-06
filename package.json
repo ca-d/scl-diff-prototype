@@ -1,5 +1,15 @@
 {
+  "scripts": {
+    "start": "shadow-cljs watch app",
+    "build": "shadow-cljs release app",
+    "deploy": "npm run build && gh-pages -d public"
+  },
   "devDependencies": {
+    "gh-pages": "^6.1.1",
     "shadow-cljs": "^2.28.10"
+  },
+  "dependencies": {
+    "@openenergytools/scl-lib": "^0.15.6",
+    "performant-vue-tree": "^0.2.12"
   }
 }
