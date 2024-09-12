@@ -1,0 +1,174 @@
+<table>
+  <tr>
+    <td colspan="3">
+      <label>load docs <input type="file" id="file" multiple /></label>
+    </td>
+  </tr>
+  <tr>
+    <td><select id="doc1"></select></td>
+    <td>-></td>
+    <td><select id="doc2"></select></td>
+  </tr>
+  <tr>
+    <td><a href="#" onclick="describeDoc()">describe doc</a></td>
+    <td></td>
+    <td><a href="#" onclick="diffDocs()">diff docs</a></td>
+  </tr>
+</table>
+
+<script type="module">
+  import * as m from "./js/scl.js";
+
+  const files = [];
+  let docs = [];
+  const doc1select = document.getElementById("doc1");
+  const doc2select = document.getElementById("doc2");
+
+  const fileInput = document.getElementById("file");
+  fileInput.onchange = (e) => {
+    Array.from(e.target.files).forEach(async (file) => {
+      const doc = new DOMParser().parseFromString(
+        await file.text(),
+        "application/xml"
+      );
+      docs.push(doc);
+      files.push(file);
+      const doc1option = document.createElement("option");
+      doc1option.value = docs.length - 1;
+      doc1option.textContent = file.name;
+      const doc2option = doc1option.cloneNode(true);
+      doc1select.appendChild(doc1option);
+      doc2select.appendChild(doc2option);
+    });
+  };
+
+  window.describeDoc = () => {
+    if (!doc1select.value) return;
+    console.time();
+    const heading = document.createElement("h2");
+    heading.textContent = files[doc1select.value].name;
+    document.querySelector("body").append(heading);
+    const d = m.sclDomToEdn(docs[doc1select.value]);
+    console.timeEnd();
+  };
+
+  window.diffDocs = () => {
+    if (
+      !doc1select.value ||
+      !doc2select.value ||
+      doc1select.value === doc2select.value
+    )
+      return;
+    const heading = document.createElement("h2");
+    heading.textContent =
+      files[doc1select.value].name + " -> " + files[doc2select.value].name;
+    document.querySelector("body").append(heading);
+    console.time();
+    const d1 = m.sclDomDiff(docs[doc1select.value], docs[doc2select.value]);
+    console.timeEnd();
+  };
+</script>
+
+<style>
+  i {
+    color: #555a;
+  }
+  th {
+    font-weight: 300;
+    opacity: 0.8;
+    width: 1%;
+    white-space: nowrap;
+  }
+  th:first-child {
+    text-align: right;
+    color: #555a;
+    padding-right: 0.5em;
+  }
+  th:nth-child(2) {
+    text-align: left;
+    color: #135;
+    padding-right: 1em;
+  }
+  td:nth-child(3) {
+    text-align: right;
+  }
+  td.arrow {
+    width: 2em;
+    text-align: center;
+    color: #5555;
+  }
+  td:nth-child(5) {
+    text-align: left;
+  }
+  tr:nth-child(2n) td,
+  tr:nth-child(2n) th {
+    background: aliceblue;
+  }
+  tr:nth-child(2n + 1) td,
+  tr:nth-child(2n + 1) th {
+    background: seashell;
+  }
+  table {
+    table-layout: auto;
+    border-collapse: collapse;
+    width: max-content;
+    margin-left: 1.2em;
+    margin-bottom: 0.3em;
+    background: none;
+  }
+  details:first-of-type {
+    border-top-left-radius: 0.5em;
+    margin-top: 0.3em;
+  }
+  details:last-of-type {
+    border-bottom-left-radius: 0.5em;
+  }
+  details {
+    width: max-content;
+    padding-top: 0.1em;
+    padding-bottom: 0.1em;
+    padding-right: 0px;
+    padding-left: 0.3em;
+    background: #aac;
+  }
+  details.odd {
+    background: #ccf;
+  }
+  span {
+    font-weight: 700;
+  }
+  details.diff > span {
+    background: linear-gradient(90deg, #a33, #383);
+  }
+  summary {
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    line-height: 1.5;
+    font-weight: 300;
+    background: #335;
+    border-radius: 0.5em;
+    margin-left: 0.3em;
+    width: fit-content;
+    color: floralwhite;
+  }
+  summary.old {
+    background: #a33;
+  }
+  summary.old:before {
+    content: "- ";
+  }
+  summary.new {
+    background: #383;
+  }
+  summary.new:before {
+    content: "+ ";
+  }
+  body {
+    background: floralwhite;
+    color: darkblue;
+  }
+  * {
+    font-family: "Courier", "Courier New", monospace;
+    cursor: default;
+  }
+</style>

@@ -1,0 +1,240 @@
+{
+  "DO": [
+    {
+      "referrer": "LNodeType/DO",
+      "within": "DataTypeTemplates",
+      "referent": "DOType",
+      "fields": [
+        {
+          "referrer": "type",
+          "referent": "id"
+        }
+      ]
+    }
+  ],
+  "SDO": [
+    {
+      "referrer": "DOType/SDO",
+      "within": "DataTypeTemplates",
+      "referent": "DOType",
+      "fields": [
+        {
+          "referrer": "type",
+          "referent": "id"
+        }
+      ]
+    }
+  ],
+  "DA": [
+    {
+      "referrer": "DOType/DA | DAType/BDA",
+      "within": "DataTypeTemplates",
+      "referent": "DAType | EnumType",
+      "fields": [
+        {
+          "referrer": "type",
+          "referent": "id"
+        }
+      ]
+    }
+  ],
+  "BDA": [
+    {
+      "referrer": "DOType/DA | DAType/BDA",
+      "within": "DataTypeTemplates",
+      "referent": "DAType | EnumType",
+      "fields": [
+        {
+          "referrer": "type",
+          "referent": "id"
+        }
+      ]
+    }
+  ],
+  "FCDA": [
+    {
+      "referrer": "./AccessPoint/Server/LDevice/LN/DataSet/FCDA",
+      "within": "IED",
+      "referent": "./AccessPoint/Server/LDevice",
+      "fields": [
+        {
+          "referrer": "ldInst",
+          "referent": "inst"
+        }
+      ]
+    },
+    {
+      "referrer": "./AccessPoint/Server/LDevice/LN0/DataSet/FCDA",
+      "within": "IED",
+      "referent": "./AccessPoint/Server/LDevice",
+      "fields": [
+        {
+          "referrer": "ldInst",
+          "referent": "inst"
+        }
+      ]
+    }
+  ],
+  "ServerAt": [
+    {
+      "referrer": "./AccessPoint/ServerAt",
+      "within": "IED",
+      "referent": "./AccessPoint",
+      "fields": [
+        {
+          "referrer": "apName",
+          "referent": "name"
+        }
+      ]
+    }
+  ],
+  "ReportControl": [
+    {
+      "referrer": "./ReportControl",
+      "within": "LN",
+      "referent": "./DataSet",
+      "fields": [
+        {
+          "referrer": "datSet",
+          "referent": "name"
+        }
+      ]
+    },
+    {
+      "referrer": "./ReportControl",
+      "within": "LN0",
+      "referent": "./DataSet",
+      "fields": [
+        {
+          "referrer": "datSet",
+          "referent": "name"
+        }
+      ]
+    }
+  ],
+  "LogControl": [
+    {
+      "referrer": "./LogControl",
+      "within": "LN",
+      "referent": "./DataSet",
+      "fields": [
+        {
+          "referrer": "datSet",
+          "referent": "name"
+        }
+      ]
+    },
+    {
+      "referrer": "./LogControl",
+      "within": "LN0",
+      "referent": "./DataSet",
+      "fields": [
+        {
+          "referrer": "datSet",
+          "referent": "name"
+        }
+      ]
+    }
+  ],
+  "GSEControl": [
+    {
+      "referrer": "./GSEControl",
+      "within": "LN0",
+      "referent": "./DataSet",
+      "fields": [
+        {
+          "referrer": "datSet",
+          "referent": "name"
+        }
+      ]
+    }
+  ],
+  "SampledValueControl": [
+    {
+      "referrer": "./SampledValueControl",
+      "within": "LN0",
+      "referent": "./DataSet",
+      "fields": [
+        {
+          "referrer": "datSet",
+          "referent": "name"
+        }
+      ]
+    }
+  ],
+  "LN": [
+    {
+      "referrer": "./IED/AccessPoint/LN",
+      "within": "SCL",
+      "referent": "./DataTypeTemplates/LNodeType",
+      "fields": [
+        {
+          "referrer": "lnType",
+          "referent": "id"
+        },
+        {
+          "referrer": "lnClass",
+          "referent": "lnClass"
+        }
+      ]
+    },
+    {
+      "referrer": "./IED/AccessPoint/Server/LDevice/LN",
+      "within": "SCL",
+      "referent": "./DataTypeTemplates/LNodeType",
+      "fields": [
+        {
+          "referrer": "lnType",
+          "referent": "id"
+        },
+        {
+          "referrer": "lnClass",
+          "referent": "lnClass"
+        }
+      ]
+    }
+  ],
+  "LN0": [
+    {
+      "referrer": "./IED/AccessPoint/Server/LDevice/LN0",
+      "within": "SCL",
+      "referent": "./DataTypeTemplates/LNodeType",
+      "fields": [
+        {
+          "referrer": "lnType",
+          "referent": "id"
+        },
+        {
+          "referrer": "lnClass",
+          "referent": "lnClass"
+        }
+      ]
+    }
+  ],
+  "ConnectedAP": [
+    {
+      "referrer": "./Communication/SubNetwork/ConnectedAP",
+      "within": "SCL",
+      "referent": "./IED",
+      "fields": [
+        {
+          "referrer": "iedName",
+          "referent": "name"
+        }
+      ]
+    }
+  ],
+  "Terminal": [
+    {
+      "referrer": ".//Terminal",
+      "within": "SCL",
+      "referent": "./Substation | ./Process | ./Line",
+      "fields": [
+        {
+          "referrer": "substationName",
+          "referent": "name"
+        }
+      ]
+    }
+  ]
+}
