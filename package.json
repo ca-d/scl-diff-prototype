@@ -2,6 +2,7 @@
   "scripts": {
     "start": "shadow-cljs watch app",
     "build": "shadow-cljs release app",
+    "repl": "shadow-cljs cljs-repl",
     "deploy": "npm run build && gh-pages -d public"
   },
   "devDependencies": {
