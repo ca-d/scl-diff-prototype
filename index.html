@@ -1,3 +1,10 @@
+<title>SCL Diff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+  rel="stylesheet"
+/>
 <table>
   <tr>
     <td colspan="3">
@@ -81,40 +88,49 @@
   }
   th:first-child {
     text-align: right;
-    color: #555a;
+    color: var(--oscd-base1);
     padding-right: 0.5em;
-  }
-  th:nth-child(2) {
-    text-align: left;
-    color: #135;
-    padding-right: 1em;
-  }
-  .diff > table td:nth-child(3) {
-    text-align: right;
   }
   td.arrow {
     width: 2em;
     text-align: center;
-    color: #5555;
+    color: var(--oscd-base1);
+  }
+  .odd > table > tr > th:first-child,
+  td.arrow {
+    color: var(--oscd-base0);
+  }
+  th:nth-child(2) {
+    text-align: left;
+    color: var(--oscd-base0);
+    background: var(--oscd-base2);
+    padding-right: 1em;
+  }
+  .diff > table td:nth-child(3) {
+    text-align: right;
   }
   td:nth-child(5) {
     text-align: left;
   }
   tr:nth-child(2n) td,
   tr:nth-child(2n) th {
-    background: aliceblue;
+    background: var(--oscd-base2);
   }
   tr:nth-child(2n + 1) td,
   tr:nth-child(2n + 1) th {
-    background: seashell;
+    background: var(--oscd-base3);
   }
   table {
+    border: 0.25em solid var(--oscd-base2);
     table-layout: auto;
     border-collapse: collapse;
     width: max-content;
     margin-left: 1.2em;
     margin-bottom: 0.3em;
     background: none;
+  }
+  .odd > table {
+    border: 0.25em solid var(--oscd-base3);
   }
   details:first-of-type {
     border-top-left-radius: 0.5em;
@@ -124,15 +140,15 @@
     border-bottom-left-radius: 0.5em;
   }
   details {
-    width: max-content;
     padding-top: 0.1em;
     padding-bottom: 0.1em;
     padding-right: 0px;
-    padding-left: 0.3em;
-    background: #aac;
+    padding-left: 0.5em;
+    background: var(--oscd-base3);
   }
   details.odd {
-    background: #ccf;
+    background: var(--oscd-base2);
+    color: var(--oscd-base01);
   }
   span {
     font-weight: 700;
@@ -145,30 +161,44 @@
     padding-right: 0.5em;
     line-height: 1.5;
     font-weight: 300;
-    background: #335;
     border-radius: 0.5em;
     margin-left: 0.3em;
     width: fit-content;
-    color: floralwhite;
   }
   summary.old {
-    background: #a33;
+    color: var(--oscd-error);
   }
   summary.old:before {
+    font-weight: 700;
     content: "- ";
   }
   summary.new {
-    background: #383;
+    color: var(--oscd-primary);
   }
   summary.new:before {
+    font-weight: 700;
     content: "+ ";
   }
   body {
     background: floralwhite;
-    color: darkblue;
+    color: var(--oscd-base00);
   }
   * {
-    font-family: "Courier", "Courier New", monospace;
+    font-family: var(--oscd-text-font);
     cursor: default;
+    --oscd-primary: var(--oscd-theme-primary, #2aa198);
+    --oscd-secondary: var(--oscd-theme-secondary, #6c71c4);
+    --oscd-error: var(--oscd-theme-error, #dc322f);
+
+    --oscd-base03: var(--oscd-theme-base03, #002b36);
+    --oscd-base02: var(--oscd-theme-base02, #073642);
+    --oscd-base01: var(--oscd-theme-base01, #586e75);
+    --oscd-base00: var(--oscd-theme-base00, #657b83);
+    --oscd-base0: var(--oscd-theme-base0, #839496);
+    --oscd-base1: var(--oscd-theme-base1, #93a1a1);
+    --oscd-base2: var(--oscd-theme-base2, #eee8d5);
+    --oscd-base3: var(--oscd-theme-base3, #fdf6e3);
+
+    --oscd-text-font: var(--oscd-theme-text-font, "Roboto");
   }
 </style>
