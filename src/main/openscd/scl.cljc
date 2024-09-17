@@ -356,7 +356,7 @@
          "contextmenu"
          (fn [e] (.append summary (str " " (hash data))) (.preventDefault e)))
        (.addEventListener summary
-                          "auxclick"
+                          "mousedown"
                           (fn [e]
                             (when (= (.-button e) 1)
                               (.preventDefault e)
