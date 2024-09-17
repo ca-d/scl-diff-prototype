@@ -328,6 +328,13 @@
         (.appendChild table tr)))
     (.appendChild target table)))
 
+(defn tag-and-id
+  [node]
+  (if (and (:tag node) (::element (meta node)))
+    (let [elm-id (id (::element (meta node)))]
+      [(:tag node) (if (string? elm-id) elm-id nil)])
+    nil))
+
 (defn render-node
   ([data target] (render-node data target 1))
   ([data target sibling-count] (render-node data target sibling-count false))
@@ -383,7 +390,7 @@
                  (fn []
                    (do (run! (fn [node]
                                (render-node node details child-count (not odd)))
-                             (sort-by :tag (:content data)))
+                             (sort-by tag-and-id (:content data)))
                        (.removeChild details span))))))))
        (when (< sibling-count 2) (set! (.-open details) true))))))
 
@@ -511,30 +518,24 @@
                            child-count (+ (count (filter #(:tag (first %))
                                                    node-pairs))
                                           (count their-nodes)
-                                          (count our-nodes))]
-                       (dorun (map (fn [[ours theirs]]
-                                     (render-node-diff ours
-                                                       theirs
-                                                       details
-                                                       child-count
-                                                       (not odd)))
-                                (sort-by #(:tag (first %)) node-pairs)))
-                       (when (seq their-nodes)
-                         (dorun (map (fn [node]
-                                       (render-node node
-                                                    details
-                                                    child-count
-                                                    (not odd)
-                                                    :new))
-                                  (sort-by :tag their-nodes))))
-                       (when (seq our-nodes)
-                         (dorun (map (fn [node]
-                                       (render-node node
-                                                    details
-                                                    child-count
-                                                    (not odd)
-                                                    :old))
-                                  (sort-by :tag our-nodes))))
+                                          (count our-nodes))
+                           nodes (sort-by
+                                   #(or (tag-and-id %) (tag-and-id (first %)))
+                                   (concat node-pairs their-nodes our-nodes))]
+                       (run! (fn [node-or-pair]
+                               (if (:tag node-or-pair)
+                                 (render-node node-or-pair
+                                              details
+                                              child-count
+                                              (not odd)
+                                              :new)
+                                 (let [[ours theirs] node-or-pair]
+                                   (render-node-diff ours
+                                                     theirs
+                                                     details
+                                                     child-count
+                                                     (not odd)))))
+                             nodes)
                        (.removeChild details span))))))))
          (when (< sibling-count 2) (set! (.-open details) true)))))))
 
