@@ -1,7 +1,8 @@
 (ns openscd.scl
   (:require ["@openenergytools/scl-lib/dist/tBaseElement/identity.js" :rename
              {identity id}]
-            [clojure.string :refer [blank? trim]]
+            [clojure.string :refer [blank? trim split replace]]
+            [clojure.data :refer [diff]]
             [clojure.set :refer [difference]]))
 
 (defn after-next-paint [f] (js/requestAnimationFrame (fn [] (js/setTimeout f))))
@@ -14,7 +15,7 @@
    :ExtRef [:iedName :intAddr :ldInst :prefix :lnClass :lnInst :doName :daName
             :serviceType :srcLDInst :srcPrefix :srcLNClass :srcLNInst
             :srcCBName],
-   :FCDA [:ldInst :prefix :lnClass :lnInst :doName :daName :fc :ix],
+   ; :FCDA [:ldInst :prefix :lnClass :lnInst :doName :daName :fc :ix],
    :GSE [:ldInst :cbName],
    :Hitem [:version :revision],
    :IEDName [:apRef :ldInst :prefix :lnClass :lnInst],
@@ -28,7 +29,7 @@
    :SMV [:ldInst :cbName],
    :Terminal [:connectivityNode]})
 
-(def references
+(def schema-references
   {:ServerAt [{:fields [{:to "name", :from "apName"}],
                :to ":scope>AccessPoint",
                :from ":scope>AccessPoint>ServerAt",
@@ -300,15 +301,95 @@
         referents)
       nil)))
 
-(defn with-references
+(defn with-schema-references
   [{:keys [tag content], :as element}]
-  (let [refs (get references (keyword tag))
+  (let [refs (get schema-references (keyword tag))
         referents (map domToEdn
                     (filter (complement nil?)
                       (flatten
                         (map tos refs (repeat (::element (meta element)))))))]
     (assoc element
-      :content (if (or content referents) (into content referents)))))
+      :content (when (or content referents) (into content referents)))))
+
+(def special-references
+  {:FCDA
+     (fn [{:keys [content],
+           {:keys [ldInst prefix lnClass lnInst doName fc daName ix]} :attrs,
+           :as description}]
+       (let [element (::element (meta description))
+             SCL (.closest element "SCL")
+             IED (.closest element "IED")
+             LN (.querySelector IED
+                                (str "LD[inst='"
+                                     ldInst
+                                     "'] LN[prefix='"
+                                     prefix
+                                     "'][inst='"
+                                     lnInst
+                                     "'][lnClass='"
+                                     lnClass
+                                     "']"))
+             lnType (.getAttribute LN "lnType")
+             LNType (.querySelector
+                      SCL
+                      (str "DataTypeTemplates LNodeType[id='" lnType "']"))
+             do-name-segments (map #(replace % #"\\(\\d+\\)" "")
+                                (split doName #"\."))
+             DO (.querySelector LNType
+                                (str "DO[name='" (first do-name-segments) "']"))
+             DOType (.querySelector SCL
+                                    (str "DataTypeTemplates DOType[id='"
+                                         (.getAttribute DO "type")
+                                         "']"))
+             sdo-type (:sdo-type
+                        ((fn [{:keys [sdo-type names]}]
+                           (let [sdo (.querySelector
+                                       sdo-type
+                                       (str "SDO[name='" (first names) "']"))]
+                             (if (nil? sdo)
+                               {:sdo-type sdo-type, :names (rest names)}
+                               (recur {:sdo-type
+                                         (.querySelector
+                                           SCL
+                                           (str "DataTypeTemplates DOType[id='"
+                                                (.getAttribute sdo "type")
+                                                "'] SDO")),
+                                       :names (rest names)}))))
+                          {:sdo-type DOType, :names (rest do-name-segments)}))
+             da-name-segments (map #(replace % #"\\(\\d+\\)" "")
+                                (split daName #"\."))
+             DA (.querySelector sdo-type
+                                (str "DA[name='" (first da-name-segments) "']"))
+             DAType (.querySelector SCL
+                                    (str "DataTypeTemplates DAType[id='"
+                                         (.getAttribute DA "type")
+                                         "']"))
+             bda-type (:bda-type
+                        ((fn [{:keys [bda-type names]}]
+                           (let [bda (.querySelector
+                                       bda-type
+                                       (str "BDA[name='" (first names) "']"))]
+                             (if (nil? bda)
+                               {:bda-type bda-type, :names (rest names)}
+                               (recur {:bda-type
+                                         (.querySelector
+                                           SCL
+                                           (str "DataTypeTemplates DAType[id='"
+                                                (.getAttribute bda "type")
+                                                "'] BDA")),
+                                       :names (rest names)}))))
+                          {:bda-type DAType, :names (rest da-name-segments)}))
+             child (first (filter identity
+                            [bda-type DAType sdo-type DOType LNType]))]
+         (assoc description :content (conj content child))))})
+
+(defn with-references
+  [element]
+  (if (contains? schema-references (keyword (:tag element)))
+    (with-schema-references element)
+    (if (contains? special-references (keyword (:tag element)))
+      ((special-references (keyword (:tag element))) element)
+      element)))
 
 (defrecord Elm [^js/String tag ^PersistentTreeMap attrs
                 ^PersistentHashSet content])
@@ -316,23 +397,24 @@
 (def ^:export domToEdn
   (memoize
     (fn [dom]
+      (if dom
       (condp = (.-nodeType dom)
         3 (trim (.-textContent dom)) ; text
         4 (.-data dom) ; CDATA
         9 (recur (.-documentElement dom)) ; document
         1 (when (not= (.-tagName dom) "DataTypeTemplates")
-            (-> (Elm. (.-tagName dom)
-                      (apply sorted-map
-                        (mapcat (fn [a] [(keyword (.-name a)) (.-value a)])
-                          (.-attributes dom)))
-                      (set (filter #(not (or (nil? %) (blank? %)))
-                             (map domToEdn (.-childNodes dom))))
-                      {::element dom}
-                      nil)
+            (-> ^{::element dom}
+                {:tag (.-tagName dom),
+                 :attrs (apply sorted-map ; FIXME: Do we need to sort?
+                               (mapcat (fn [a] [(keyword (.-name a))
+                                                (.-value a)])
+                                 (.-attributes dom))),
+                 :content (set (filter #(not (or (nil? %) (blank? %)))
+                                 (map domToEdn (.-childNodes dom))))}
                 with-defaults
                 without-identifiers
-                with-references)) ; element
-        nil))))
+                with-schema-references)) ; element
+        nil) nil))))
 
 (defn render-attributes
   [attrs target]
@@ -389,10 +471,12 @@
        (set! (.-textContent summary) (str (:tag data) " " title " "))
        (.appendChild details summary)
        (.appendChild target details)
-       (.addEventListener
-         summary
-         "contextmenu"
-         (fn [e] (.append summary (str " " (hash data))) (.preventDefault e)))
+       (.addEventListener summary
+                          "contextmenu"
+                          (fn [e]
+                            (.preventDefault e)
+                            (.append summary (str " " (hash data)))
+                            (.preventDefault e)))
        (.addEventListener summary
                           "mousedown"
                           (fn [e]
@@ -476,107 +560,110 @@
    (render-node-diff ours theirs target sibling-count false))
   ([ours theirs target sibling-count odd]
    (when-not (= ours theirs)
-     (if (string? ours)
-       (when-not (and (blank? ours) (blank? theirs))
-         (let [span (js/document.createElement "span")]
-           (set! (.-textContent span) (str ours " -> " theirs))
-           (.append target span)))
-       (let [details (js/document.createElement "details")
-             summary (js/document.createElement "summary")
-             title (id (or (::element (meta ours)) (::element (meta theirs))))]
-         (when odd (set! (.-className details) "odd"))
-         (-> details
-             .-classList
-             (.add "diff"))
-         (set! (.-textContent summary) (str (:tag ours) " " title " "))
-         (.appendChild details summary)
-         (.appendChild target details)
-         (.addEventListener
-           summary
-           "contextmenu"
-           (fn [e]
-             (.append summary (str " " (hash ours) " -> " (hash theirs)))
-             (.preventDefault e)))
-         (.addEventListener summary
-                            "auxclick"
-                            (fn [e]
-                              (when (= (.-button e) 1)
-                                (.preventDefault e)
-                                (run! #(when (= (.-tagName %) "DETAILS")
-                                         (set! (.-open %) (not (.-open %))))
-                                      (array-seq (.-children details))))))
-         (.addEventListener
-           details
-           "toggle"
-           (fn [e]
-             (when (and (.-open details)
-                        (-> details
-                            .-classList
-                            (.contains "rendered")
-                            not))
-               (-> details
-                   .-classList
-                   (.add "rendered"))
-               (render-attribute-diff (:attrs ours) (:attrs theirs) details)
-               (let [span (js/document.createElement "span")]
-                 (set! (.-textContent span) "Loading...")
-                 (.appendChild details span)
-                 (after-next-paint
-                   (fn []
-                     (let [node-pairs (filter #(= (count %) 2)
-                                        (vals (merge-with
-                                                concat
-                                                (group-by
-                                                  #(str (:tag %)
-                                                        (id (::element (meta
-                                                                         %))))
-                                                  (into (:content ours)
-                                                        (:content theirs))))))
-                           their-identified-nodes
-                             (group-by #(str (:tag %) (id (::element (meta %))))
-                                       (:content theirs))
-                           our-identified-nodes
-                             (group-by #(str (:tag %) (id (::element (meta %))))
-                                       (:content ours))
-                           their-identities (set (keys their-identified-nodes))
-                           our-identities (set (keys our-identified-nodes))
-                           their-nodes (map #(first (their-identified-nodes %))
-                                         (difference their-identities
-                                                     our-identities))
-                           our-nodes (map #(first (our-identified-nodes %))
-                                       (difference our-identities
-                                                   their-identities))
-                           child-count (+ (count (filter #(:tag (first %))
-                                                   node-pairs))
-                                          (count their-nodes)
-                                          (count our-nodes))
-                           nodes (sort-by
-                                   #(or (tag-and-id %) (tag-and-id (first %)))
-                                   (concat node-pairs their-nodes our-nodes))]
-                       (run! (fn [node-or-pair]
-                               (if (:tag node-or-pair)
-                                 (render-node node-or-pair
-                                              details
-                                              child-count
-                                              (not odd)
-                                              :new)
-                                 (let [[ours theirs] node-or-pair]
-                                   (render-node-diff ours
-                                                     theirs
-                                                     details
-                                                     child-count
-                                                     (not odd)))))
-                             nodes)
-                       (.removeChild details span))))))))
-         (when (< sibling-count 2) (set! (.-open details) true)))))))
+     (if (nil? theirs) (render-node ours target sibling-count odd :old)
+       (if (nil? ours) (render-node theirs target sibling-count odd :new)
+         (if (string? ours)
+           (when-not (and (blank? ours) (blank? theirs))
+             (let [span (js/document.createElement "span")]
+               (set! (.-textContent span) (str ours " -> " theirs))
+               (.append target span)))
+           (let [details (js/document.createElement "details")
+                 summary (js/document.createElement "summary")
+                 title (id (or (::element (meta ours)) (::element (meta theirs))))]
+             (when odd (set! (.-className details) "odd"))
+             (-> details
+                 .-classList
+                 (.add "diff"))
+             (set! (.-textContent summary) (str (:tag ours) " " title " "))
+             (.appendChild details summary)
+             (.appendChild target details)
+             (.addEventListener
+               summary
+               "contextmenu"
+               (fn [e]
+                 (.log js/console (pr-str (diff ours theirs)))
+                 (.append summary (str " " (hash ours) " -> " (hash theirs)))
+                 (.preventDefault e)))
+             (.addEventListener summary
+                                "auxclick"
+                                (fn [e]
+                                  (when (= (.-button e) 1)
+                                    (.preventDefault e)
+                                    (run! #(when (= (.-tagName %) "DETAILS")
+                                             (set! (.-open %) (not (.-open %))))
+                                          (array-seq (.-children details))))))
+             (.addEventListener
+               details
+               "toggle"
+               (fn [e]
+                 (when (and (.-open details)
+                            (-> details
+                                .-classList
+                                (.contains "rendered")
+                                not))
+                   (-> details
+                       .-classList
+                       (.add "rendered"))
+                   (render-attribute-diff (:attrs ours) (:attrs theirs) details)
+                   (let [span (js/document.createElement "span")]
+                     (set! (.-textContent span) "Loading...")
+                     (.appendChild details span)
+                     (after-next-paint
+                       (fn []
+                         (let [node-pairs (filter #(= (count %) 2)
+                                                  (vals (merge-with
+                                                          concat
+                                                          (group-by
+                                                            #(str (:tag %)
+                                                                  (id (::element (meta
+                                                                                   %))))
+                                                            (into (:content ours)
+                                                                  (:content theirs))))))
+                               their-identified-nodes
+                               (group-by #(str (:tag %) (id (::element (meta %))))
+                                         (:content theirs))
+                               our-identified-nodes
+                               (group-by #(str (:tag %) (id (::element (meta %))))
+                                         (:content ours))
+                               their-identities (set (keys their-identified-nodes))
+                               our-identities (set (keys our-identified-nodes))
+                               their-nodes (map #(first (their-identified-nodes %))
+                                                (difference their-identities
+                                                            our-identities))
+                               our-nodes (map #(first (our-identified-nodes %))
+                                              (difference our-identities
+                                                          their-identities))
+                               child-count (+ (count (filter #(:tag (first %))
+                                                             node-pairs))
+                                              (count their-nodes)
+                                              (count our-nodes))
+                               nodes (sort-by
+                                       #(or (tag-and-id %) (tag-and-id (first %)))
+                                       (concat node-pairs their-nodes our-nodes))]
+                           (run! (fn [node-or-pair]
+                                   (if (:tag node-or-pair)
+                                     (render-node node-or-pair
+                                                  details
+                                                  child-count
+                                                  (not odd)
+                                                  :new)
+                                     (let [[ours theirs] node-or-pair]
+                                       (render-node-diff ours
+                                                         theirs
+                                                         details
+                                                         child-count
+                                                         (not odd)))))
+                                 nodes)
+                           (.removeChild details span))))))))
+             (when (< sibling-count 2) (set! (.-open details) true)))))))))
 
 (defn show-diff
-  [edn1 edn2]
-  (when-not (= edn1 edn2) (render-node-diff edn1 edn2 js/document.body)))
+  [edn1 edn2 target]
+  (when-not (= edn1 edn2) (render-node-diff edn1 edn2 target)))
 
 (defn ^:export sclDomDiff
-  [dom1 dom2]
-  (let [edn1 (domToEdn dom1) edn2 (domToEdn dom2)] (show-diff edn1 edn2)))
+    [dom1 dom2 target]
+  (let [edn1 (domToEdn dom1) edn2 (domToEdn dom2)] (show-diff edn1 edn2 target)))
 
 (defn ^:export sclDomToEdn
   [dom]
