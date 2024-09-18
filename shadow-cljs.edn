@@ -6,7 +6,6 @@
                                     sclDomToEdn openscd.scl/sclDomToEdn}}},
           :output-dir "public/js",
           :target :esm}},
- :dependencies [[juji/editscript "0.6.3"] [fipp "0.6.26"]
-                [com.taoensso/tufte "2.6.3"]],
  :dev-http {8020 "public"},
+ :nrepl {:port 3333},
  :source-paths ["src/dev" "src/main" "src/test"]}

@@ -1,12 +1,32 @@
 (ns openscd.scl
   (:require ["@openenergytools/scl-lib/dist/tBaseElement/identity.js" :rename
              {identity id}]
-            [fipp.edn :refer [pprint]]
             [clojure.string :refer [blank? trim]]
-            [clojure.set :refer [difference]]
-            [clojure.edn :refer [read-string]]))
+            [clojure.set :refer [difference]]))
 
 (defn after-next-paint [f] (js/requestAnimationFrame (fn [] (js/setTimeout f))))
+
+(def identifier-attributes
+  {:Association [:iedName :ldInst :prefix :lnClass :lnInst :lnType],
+   :ClientLN [:apRef :iedName :ldInst :prefix :lnClass :lnInst],
+   :ConnectedAP [:iedName :apName],
+   :DAI [:name :ix],
+   :ExtRef [:iedName :intAddr :ldInst :prefix :lnClass :lnInst :doName :daName
+            :serviceType :srcLDInst :srcPrefix :srcLNClass :srcLNInst
+            :srcCBName],
+   :FCDA [:ldInst :prefix :lnClass :lnInst :doName :daName :fc :ix],
+   :GSE [:ldInst :cbName],
+   :Hitem [:version :revision],
+   :IEDName [:apRef :ldInst :prefix :lnClass :lnInst],
+   :KDC [:iedName :apName],
+   :LDevice [:IED :inst],
+   :LN [:prefix :lnClass :inst],
+   :LN0 [:prefix :lnClass :inst],
+   :LNode [:iedName :ldInst :prefix :lnClass :lnInst :lnType],
+   :PhysConn [:type],
+   :SDI [:name :ix],
+   :SMV [:ldInst :cbName],
+   :Terminal [:connectivityNode]})
 
 (def references
   {:ServerAt [{:fields [{:to "name", :from "apName"}],
@@ -258,6 +278,15 @@
     (assoc element
       :attrs (if default-attrs (merge default-attrs attrs) attrs))))
 
+(defn without-identifiers
+  [{:keys [attrs], :as element}]
+  (assoc element
+    :attrs (apply dissoc
+             attrs
+             :name
+             :id
+             (identifier-attributes (keyword (:tag element))))))
+
 (defn tos
   [{:keys [fields to from scope]} elm]
   (let [ancestor (.closest elm scope)]
@@ -301,6 +330,7 @@
                       {::element dom}
                       nil)
                 with-defaults
+                without-identifiers
                 with-references)) ; element
         nil))))
 
