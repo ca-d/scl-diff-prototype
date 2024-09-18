@@ -2,7 +2,7 @@
   (:require ["@openenergytools/scl-lib/dist/tBaseElement/identity.js" :rename
              {identity id}]
             [fipp.edn :refer [pprint]]
-            [clojure.string :refer [blank?]]
+            [clojure.string :refer [blank? trim]]
             [clojure.set :refer [difference]]
             [clojure.edn :refer [read-string]]))
 
@@ -13,14 +13,14 @@
                :to ":scope>AccessPoint",
                :from ":scope>AccessPoint>ServerAt",
                :scope "IED"}],
-   ; :LogControl [{:fields [{:to "name", :from "datSet"}],
-   ;               :to ":scope>DataSet",
-   ;               :from ":scope>LogControl",
-   ;               :scope "LN"}
-   ;              {:fields [{:to "name", :from "datSet"}],
-   ;               :to ":scope>DataSet",
-   ;               :from ":scope>LogControl",
-   ;               :scope "LN0"}],
+   :LogControl [{:fields [{:to "name", :from "datSet"}],
+                 :to ":scope>DataSet",
+                 :from ":scope>LogControl",
+                 :scope "LN"}
+                {:fields [{:to "name", :from "datSet"}],
+                 :to ":scope>DataSet",
+                 :from ":scope>LogControl",
+                 :scope "LN0"}],
    ;   :FCDA [{:fields [{:to "inst", :from "ldInst"}],
    ;           :to ":scope>AccessPoint>Server>LDevice", :from
    ;           ":scope>AccessPoint>Server>LDevice>LN>DataSet>FCDA",
@@ -48,17 +48,17 @@
           :scope "DataTypeTemplates"}],
    ;   :Terminal [{:fields [{:to "name", :from "substationName"}],
    ;               :to ":scope>Substation, :scope>Process,
-   ;               :scope>Line", :from ":scope>>Terminal", :scope
+   ;               :scope>Line", :from ":scope Terminal", :scope
    ;               "SCL"}],
    ; :LN0 [{:fields [{:to "id", :from "lnType"} {:to "lnClass", :from
    ; "lnClass"}],
    ;        :to ":scope>DataTypeTemplates>LNodeType",
    ;        :from ":scope>IED>AccessPoint>Server>LDevice>LN0",
    ;        :scope "SCL"}],
-   ;   :SampledValueControl [{:fields [{:to "name", :from "datSet"}],
-   ;                          :to ":scope>DataSet", :from
-   ;                          ":scope>SampledValueControl", :scope
-   ;                          "LN0"}],
+   :SampledValueControl [{:fields [{:to "name", :from "datSet"}],
+                          :to ":scope>DataSet",
+                          :from ":scope>SampledValueControl",
+                          :scope "LN0"}],
    :GSEControl [{:fields [{:to "name", :from "datSet"}],
                  :to ":scope>DataSet",
                  :from ":scope>GSEControl",
@@ -66,15 +66,15 @@
    :DA [{:fields [{:to "id", :from "type"}],
          :to ":scope>DAType, :scope>EnumType",
          :from ":scope>DOType>DA, :scope>DAType>BDA",
-         :scope "DataTypeTemplates"}]
-   ;   :ReportControl [{:fields [{:to "name", :from "datSet"}],
-   ;                    :to ":scope>DataSet", :from
-   ;                    ":scope>ReportControl",
-   ;                    :scope "LN"}
-   ;                   {:fields [{:to "name", :from "datSet"}],
-   ;                    :to ":scope>DataSet",
-   ;                    :from ":scope>ReportControl",
-   ;                    :scope "LN0"}],
+         :scope "DataTypeTemplates"}],
+   :ReportControl [{:fields [{:to "name", :from "datSet"}],
+                    :to ":scope>DataSet",
+                    :from ":scope>ReportControl",
+                    :scope "LN"}
+                   {:fields [{:to "name", :from "datSet"}],
+                    :to ":scope>DataSet",
+                    :from ":scope>ReportControl",
+                    :scope "LN0"}]
    ; :LN [{:fields [{:to "id", :from "lnType"} {:to "lnClass", :from
    ; "lnClass"}],
    ;       :to ":scope>DataTypeTemplates>LNodeType",
@@ -288,14 +288,15 @@
   (memoize
     (fn [dom]
       (condp = (.-nodeType dom)
-        3 (.-textContent dom) ; text
+        3 (trim (.-textContent dom)) ; text
+        4 (.-data dom) ; CDATA
         9 (recur (.-documentElement dom)) ; document
         1 (when (not= (.-tagName dom) "DataTypeTemplates")
             (-> (Elm. (.-tagName dom)
                       (apply sorted-map
                         (mapcat (fn [a] [(keyword (.-name a)) (.-value a)])
                           (.-attributes dom)))
-                      (set (filter (complement nil?)
+                      (set (filter #(not (or (nil? %) (blank? %)))
                              (map domToEdn (.-childNodes dom))))
                       {::element dom}
                       nil)
