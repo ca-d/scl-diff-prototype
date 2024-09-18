@@ -258,6 +258,10 @@
     (assoc element
       :attrs (if default-attrs (merge default-attrs attrs) attrs))))
 
+(defn without-identifiers
+  [{:keys [attrs], :as element}]
+  (assoc element :attrs (dissoc attrs :id)))
+
 (defn tos
   [{:keys [fields to from scope]} elm]
   (let [ancestor (.closest elm scope)]

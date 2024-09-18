@@ -1,0 +1,17 @@
+Hitem `${e.getAttribute("version")}\t${e.getAttribute("revision")}`;
+Terminal `${identity(e.parentElement)}>${e.getAttribute("connectivityNode")}`;
+LNode "iedName", "ldInst", "prefix", "lnClass", "lnInst", "lnType",
+KDC `${identity(e.parentElement)}>${e.getAttribute("iedName")} ${e.getAttribute("apName")}`;
+Association "iedName", "ldInst", "prefix", "lnClass", "lnInst", "lnType"
+LDevice `${identity(e.closest("IED")!)}>>${e.getAttribute("inst")}`;
+IEDName "apRef", "ldInst", "prefix", "lnClass", "lnInst",
+FCDA "ldInst", "prefix", "lnClass", "lnInst", "doName", "daName", "fc", "ix",
+ExtRef const iedName = e.getAttribute("iedName"); const intAddr = e.getAttribute("intAddr"); "ldInst", "prefix", "lnClass", "lnInst", "doName", "daName", "serviceType", "srcLDInst", "srcPrefix", "srcLNClass", "srcLNInst", "srcCBName",
+LN,LN0 const [prefix, lnClass, inst] = ["prefix", "lnClass", "inst"].map((name) =>
+ClientLN "apRef", "iedName", "ldInst", "prefix", "lnClass", "lnInst",
+DAI,SDI const [name, ix] = ["name", "ix"].map((naming) => e.getAttribute(naming));
+ConnectedAP const [iedName, apName] = ["iedName", "apName"].map((name) =>
+GSE,SMV const [ldInst, cbName] = ["ldInst", "cbName"].map((name) =>
+PhysConn const pcType = e.getAttribute("type");
+Naming "name"
+idNaming "id"
