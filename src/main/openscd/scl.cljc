@@ -319,8 +319,7 @@
        (let [element (::element (meta description))
              SCL (.closest element "SCL")
              IED (.closest element "IED")
-             LN (.querySelector IED
-                                (str "LD[inst='"
+             selector (str "LDevice[inst='"
                                      ldInst
                                      "'] LN[prefix='"
                                      prefix
@@ -328,7 +327,8 @@
                                      lnInst
                                      "'][lnClass='"
                                      lnClass
-                                     "']"))
+                                     "']")
+             LN (.querySelector IED selector)
              lnType (.getAttribute LN "lnType")
              LNType (.querySelector
                       SCL
@@ -357,9 +357,11 @@
                                        :names (rest names)}))))
                           {:sdo-type DOType, :names (rest do-name-segments)}))
              da-name-segments (map #(replace % #"\\(\\d+\\)" "")
-                                (split daName #"\."))
+                                (split daName #"\\."))
              DA (.querySelector sdo-type
                                 (str "DA[name='" (first da-name-segments) "']"))
+             _ (println daName)
+             _ (.log js/console sdo-type)
              DAType (.querySelector SCL
                                     (str "DataTypeTemplates DAType[id='"
                                          (.getAttribute DA "type")
@@ -385,11 +387,12 @@
 
 (defn with-references
   [element]
-  (if (contains? schema-references (keyword (:tag element)))
-    (with-schema-references element)
+  (do
     (if (contains? special-references (keyword (:tag element)))
-      ((special-references (keyword (:tag element))) element)
-      element)))
+      ((get special-references (keyword (:tag element))) element)
+      (if (contains? schema-references (keyword (:tag element)))
+        (with-schema-references element)
+        element))))
 
 (defrecord Elm [^js/String tag ^PersistentTreeMap attrs
                 ^PersistentHashSet content])
@@ -398,7 +401,7 @@
   (memoize
     (fn [dom]
       (if dom
-      (condp = (.-nodeType dom)
+        (condp = (.-nodeType dom)
         3 (trim (.-textContent dom)) ; text
         4 (.-data dom) ; CDATA
         9 (recur (.-documentElement dom)) ; document
@@ -413,8 +416,9 @@
                                  (map domToEdn (.-childNodes dom))))}
                 with-defaults
                 without-identifiers
-                with-schema-references)) ; element
-        nil) nil))))
+                with-references)) ; element
+        nil)
+        nil))))
 
 (defn render-attributes
   [attrs target]
@@ -449,7 +453,7 @@
     nil))
 
 (defn render-node
-  ([data target] (render-node data target 1))
+  ([data target] (render-node data target 2))
   ([data target sibling-count] (render-node data target sibling-count false))
   ([data target sibling-count odd]
    (render-node data target sibling-count odd nil))
@@ -555,7 +559,7 @@
       (.appendChild target table))))
 
 (defn render-node-diff
-  ([ours theirs target] (render-node-diff ours theirs target 1))
+  ([ours theirs target] (render-node-diff ours theirs target 2))
   ([ours theirs target sibling-count]
    (render-node-diff ours theirs target sibling-count false))
   ([ours theirs target sibling-count odd]
