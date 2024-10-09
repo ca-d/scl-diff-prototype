@@ -311,88 +311,96 @@
     (assoc element
       :content (when (or content referents) (into content referents)))))
 
-(def special-references
-  {:FCDA
-     (fn [{:keys [content],
-           {:keys [ldInst prefix lnClass lnInst doName fc daName ix]} :attrs,
-           :as description}]
-       (let [element (::element (meta description))
-             SCL (.closest element "SCL")
-             IED (.closest element "IED")
-             selector (str "LDevice[inst='"
-                                     ldInst
-                                     "'] LN[prefix='"
-                                     prefix
-                                     "'][inst='"
-                                     lnInst
-                                     "'][lnClass='"
-                                     lnClass
-                                     "']")
-             LN (.querySelector IED selector)
-             lnType (.getAttribute LN "lnType")
-             LNType (.querySelector
-                      SCL
-                      (str "DataTypeTemplates LNodeType[id='" lnType "']"))
-             do-name-segments (map #(replace % #"\\(\\d+\\)" "")
-                                (split doName #"\."))
-             DO (.querySelector LNType
-                                (str "DO[name='" (first do-name-segments) "']"))
-             DOType (.querySelector SCL
-                                    (str "DataTypeTemplates DOType[id='"
-                                         (.getAttribute DO "type")
-                                         "']"))
-             sdo-type (:sdo-type
-                        ((fn [{:keys [sdo-type names]}]
-                           (let [sdo (.querySelector
-                                       sdo-type
-                                       (str "SDO[name='" (first names) "']"))]
-                             (if (nil? sdo)
-                               {:sdo-type sdo-type, :names (rest names)}
-                               (recur {:sdo-type
-                                         (.querySelector
-                                           SCL
-                                           (str "DataTypeTemplates DOType[id='"
-                                                (.getAttribute sdo "type")
-                                                "'] SDO")),
-                                       :names (rest names)}))))
-                          {:sdo-type DOType, :names (rest do-name-segments)}))
-             da-name-segments (map #(replace % #"\\(\\d+\\)" "")
-                                (split daName #"\\."))
-             DA (.querySelector sdo-type
-                                (str "DA[name='" (first da-name-segments) "']"))
-             _ (println daName)
-             _ (.log js/console sdo-type)
-             DAType (.querySelector SCL
-                                    (str "DataTypeTemplates DAType[id='"
-                                         (.getAttribute DA "type")
-                                         "']"))
-             bda-type (:bda-type
-                        ((fn [{:keys [bda-type names]}]
-                           (let [bda (.querySelector
-                                       bda-type
-                                       (str "BDA[name='" (first names) "']"))]
-                             (if (nil? bda)
-                               {:bda-type bda-type, :names (rest names)}
-                               (recur {:bda-type
-                                         (.querySelector
-                                           SCL
-                                           (str "DataTypeTemplates DAType[id='"
-                                                (.getAttribute bda "type")
-                                                "'] BDA")),
-                                       :names (rest names)}))))
-                          {:bda-type DAType, :names (rest da-name-segments)}))
-             child (first (filter identity
-                            [bda-type DAType sdo-type DOType LNType]))]
-         (assoc description :content (conj content child))))})
+(def fcda-references
+  (fn [{:keys [content],
+        {:keys [ldInst prefix lnClass lnInst doName daName]} :attrs,
+        ; TODO: add fc and ix
+        :as description}]
+    (let [element (::element (meta description))
+          SCL (.closest element "SCL")
+          IED (.closest element "IED")
+          selector (if (= lnClass "LLN0")
+                     (str "LDevice[inst='" ldInst "'] LN0[inst='" lnInst "']")
+                     (str "LDevice[inst='"
+                          ldInst
+                          "'] LN[prefix='"
+                          prefix
+                          "'][inst='"
+                          lnInst
+                          "'][lnClass='"
+                          lnClass
+                          "']"))
+          LN (.querySelector IED selector)
+          lnType (.getAttribute LN "lnType")
+          LNType (.querySelector
+                   SCL
+                   (str "DataTypeTemplates LNodeType[id='" lnType "']"))
+          do-name-segments (map #(replace % #"\\(\\d+\\)" "")
+                             (split doName #"\."))
+          DO (.querySelector LNType
+                             (str "DO[name='" (first do-name-segments) "']"))
+          DOType (.querySelector SCL
+                                 (str "DataTypeTemplates DOType[id='"
+                                      (.getAttribute DO "type")
+                                      "']"))
+          sdo-type (:sdo-type
+                     ((fn [{:keys [sdo-type names]}]
+                        (when-not (nil? sdo-type)
+                          (let [sdo (.querySelector
+                                      sdo-type
+                                      (str "SDO[name='" (first names) "']"))]
+                            (if (nil? sdo)
+                              {:sdo-type sdo-type, :names (rest names)}
+                              (recur {:sdo-type
+                                        (.querySelector
+                                          SCL
+                                          (str "DataTypeTemplates DOType[id='"
+                                               (.getAttribute sdo "type")
+                                               "'] SDO")),
+                                      :names (rest names)})))))
+                       {:sdo-type DOType, :names (rest do-name-segments)}))
+          da-name-segments (map #(replace % #"\\(\\d+\\)" "")
+                             (split daName #"\\."))
+          DA (when sdo-type
+               (.querySelector sdo-type
+                               (str "DA[name='" (first da-name-segments) "']")))
+          ;_ (.log js/console (str da-name-segments) DA sdo-type)
+          DAType (when DA
+                   (.querySelector SCL
+                                   (str "DataTypeTemplates DAType[id='"
+                                        (.getAttribute DA "type")
+                                        "']")))
+          bda-type (:bda-type
+                     ((fn [{:keys [bda-type names]}]
+                        (when-not (nil? bda-type)
+                          (let [bda (.querySelector
+                                      bda-type
+                                      (str "BDA[name='" (first names) "']"))]
+                            (if (nil? bda)
+                              {:bda-type bda-type, :names (rest names)}
+                              (recur {:bda-type
+                                        (.querySelector
+                                          SCL
+                                          (str "DataTypeTemplates DAType[id='"
+                                               (.getAttribute bda "type")
+                                               "'] BDA")),
+                                      :names (rest names)})))))
+                       {:bda-type DAType, :names (rest da-name-segments)}))
+          child (first (filter identity
+                         [bda-type DAType sdo-type DOType LNType]))]
+      (if child
+        (assoc description :content (conj content (domToEdn child)))
+        description))))
+
+(def special-references {:FCDA fcda-references})
 
 (defn with-references
   [element]
-  (do
-    (if (contains? special-references (keyword (:tag element)))
-      ((get special-references (keyword (:tag element))) element)
-      (if (contains? schema-references (keyword (:tag element)))
-        (with-schema-references element)
-        element))))
+  (if (contains? special-references (keyword (:tag element)))
+    ((get special-references (keyword (:tag element))) element)
+    (if (contains? schema-references (keyword (:tag element)))
+      (with-schema-references element)
+      element)))
 
 (defrecord Elm [^js/String tag ^PersistentTreeMap attrs
                 ^PersistentHashSet content])
@@ -402,22 +410,22 @@
     (fn [dom]
       (if dom
         (condp = (.-nodeType dom)
-        3 (trim (.-textContent dom)) ; text
-        4 (.-data dom) ; CDATA
-        9 (recur (.-documentElement dom)) ; document
-        1 (when (not= (.-tagName dom) "DataTypeTemplates")
-            (-> ^{::element dom}
-                {:tag (.-tagName dom),
-                 :attrs (apply sorted-map ; FIXME: Do we need to sort?
-                               (mapcat (fn [a] [(keyword (.-name a))
-                                                (.-value a)])
-                                 (.-attributes dom))),
-                 :content (set (filter #(not (or (nil? %) (blank? %)))
-                                 (map domToEdn (.-childNodes dom))))}
-                with-defaults
-                without-identifiers
-                with-references)) ; element
-        nil)
+          3 (trim (.-textContent dom)) ; text
+          4 (.-data dom) ; CDATA
+          9 (recur (.-documentElement dom)) ; document
+          1 (when (not= (.-tagName dom) "DataTypeTemplates")
+              (-> ^{::element dom}
+                  {:tag (.-tagName dom),
+                   :attrs (apply sorted-map ; FIXME: Do we need to sort?
+                                 (mapcat (fn [a] [(keyword (.-name a))
+                                                  (.-value a)])
+                                   (.-attributes dom))),
+                   :content (set (filter #(not (or (nil? %) (blank? %)))
+                                   (map domToEdn (.-childNodes dom))))}
+                  with-defaults
+                  without-identifiers
+                  with-references)) ; element
+          nil)
         nil))))
 
 (defn render-attributes
@@ -492,7 +500,7 @@
        (.addEventListener
          details
          "toggle"
-         (fn [e]
+         (fn []
            (when (and (.-open details)
                       (-> details
                           .-classList
@@ -507,10 +515,10 @@
                (.appendChild details span)
                (after-next-paint
                  (fn []
-                   (do (run! (fn [node]
-                               (render-node node details child-count (not odd)))
-                             (sort-by tag-and-id (:content data)))
-                       (.removeChild details span))))))))
+                   (run! (fn [node]
+                           (render-node node details child-count (not odd)))
+                         (sort-by tag-and-id (:content data)))
+                   (.removeChild details span)))))))
        (when (< sibling-count 2) (set! (.-open details) true))))))
 
 (defn show-data [data] (render-node data js/document.body) data)
@@ -564,8 +572,10 @@
    (render-node-diff ours theirs target sibling-count false))
   ([ours theirs target sibling-count odd]
    (when-not (= ours theirs)
-     (if (nil? theirs) (render-node ours target sibling-count odd :old)
-       (if (nil? ours) (render-node theirs target sibling-count odd :new)
+     (if (nil? theirs)
+       (render-node ours target sibling-count odd :old)
+       (if (nil? ours)
+         (render-node theirs target sibling-count odd :new)
          (if (string? ours)
            (when-not (and (blank? ours) (blank? theirs))
              (let [span (js/document.createElement "span")]
@@ -573,7 +583,8 @@
                (.append target span)))
            (let [details (js/document.createElement "details")
                  summary (js/document.createElement "summary")
-                 title (id (or (::element (meta ours)) (::element (meta theirs))))]
+                 title (id (or (::element (meta ours))
+                               (::element (meta theirs))))]
              (when odd (set! (.-className details) "odd"))
              (-> details
                  .-classList
@@ -585,7 +596,6 @@
                summary
                "contextmenu"
                (fn [e]
-                 (.log js/console (pr-str (diff ours theirs)))
                  (.append summary (str " " (hash ours) " -> " (hash theirs)))
                  (.preventDefault e)))
              (.addEventListener summary
@@ -599,7 +609,7 @@
              (.addEventListener
                details
                "toggle"
-               (fn [e]
+               (fn []
                  (when (and (.-open details)
                             (-> details
                                 .-classList
@@ -614,36 +624,32 @@
                      (.appendChild details span)
                      (after-next-paint
                        (fn []
-                         (let [node-pairs (filter #(= (count %) 2)
-                                                  (vals (merge-with
-                                                          concat
-                                                          (group-by
-                                                            #(str (:tag %)
-                                                                  (id (::element (meta
-                                                                                   %))))
-                                                            (into (:content ours)
-                                                                  (:content theirs))))))
-                               their-identified-nodes
-                               (group-by #(str (:tag %) (id (::element (meta %))))
-                                         (:content theirs))
-                               our-identified-nodes
-                               (group-by #(str (:tag %) (id (::element (meta %))))
-                                         (:content ours))
-                               their-identities (set (keys their-identified-nodes))
+                         (let [their-identified-nodes
+                                 (group-by tag-and-id (:content theirs))
+                               our-identified-nodes (group-by tag-and-id
+                                                              (:content ours))
+                               node-pairs (filter #(= (count %) 2)
+                                            (vals (merge-with
+                                                    concat
+                                                    their-identified-nodes
+                                                    our-identified-nodes)))
+                               their-identities (set (keys
+                                                       their-identified-nodes))
                                our-identities (set (keys our-identified-nodes))
-                               their-nodes (map #(first (their-identified-nodes %))
-                                                (difference their-identities
-                                                            our-identities))
+                               their-nodes
+                                 (map #(first (their-identified-nodes %))
+                                   (difference their-identities our-identities))
                                our-nodes (map #(first (our-identified-nodes %))
-                                              (difference our-identities
-                                                          their-identities))
+                                           (difference our-identities
+                                                       their-identities))
                                child-count (+ (count (filter #(:tag (first %))
-                                                             node-pairs))
+                                                       node-pairs))
                                               (count their-nodes)
                                               (count our-nodes))
-                               nodes (sort-by
-                                       #(or (tag-and-id %) (tag-and-id (first %)))
-                                       (concat node-pairs their-nodes our-nodes))]
+                               nodes
+                                 (sort-by
+                                   #(or (tag-and-id %) (tag-and-id (first %)))
+                                   (concat node-pairs their-nodes our-nodes))]
                            (run! (fn [node-or-pair]
                                    (if (:tag node-or-pair)
                                      (render-node node-or-pair
@@ -666,8 +672,10 @@
   (when-not (= edn1 edn2) (render-node-diff edn1 edn2 target)))
 
 (defn ^:export sclDomDiff
-    [dom1 dom2 target]
-  (let [edn1 (domToEdn dom1) edn2 (domToEdn dom2)] (show-diff edn1 edn2 target)))
+  [dom1 dom2 target]
+  (let [edn1 (domToEdn dom1)
+        edn2 (domToEdn dom2)]
+    (show-diff edn1 edn2 target)))
 
 (defn ^:export sclDomToEdn
   [dom]
