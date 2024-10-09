@@ -18,10 +18,11 @@
   </tr>
   <tr>
     <td><a href="#" onclick="describeDoc()">describe</a></td>
-    <td><select id="tag">
+    <td>
+      <select id="tag">
         <option value="SCL" selected>SCL</option>
-        <option value="FCDA">FCDA</option>
-      </select></td>
+      </select>
+    </td>
     <td><a href="#" onclick="diffDocs()">diff</a></td>
   </tr>
 </table>
@@ -30,8 +31,8 @@
   import { identity } from "./identity.js";
   import * as m from "./js/scl.js";
 
-  const files = [];
-  let docs = [];
+  window.files = [];
+  window.docs = [];
   const doc1select = document.getElementById("doc1");
   const doc2select = document.getElementById("doc2");
   const tagselect = document.getElementById("tag");
