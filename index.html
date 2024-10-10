@@ -66,9 +66,11 @@
     });
   };
 
+  let runs = 0;
+
   window.describeDoc = () => {
     if (!doc1select.value) return;
-    console.time();
+    console.time(`describe ${files[doc1select.value].name} ${runs++}`);
     const heading = document.createElement("h2");
     heading.textContent = files[doc1select.value].name;
     document.querySelector("body").append(heading);
@@ -106,7 +108,7 @@
       else elements[identity(elm)] = [null, elm];
     })
 
-    console.time();
+    console.time(`diff ${files[doc1select.value].name} -> ${files[doc2select.value].name} ${runs++}`);
     Object.keys(elements).forEach(id => {
       m.sclDomDiff(elements[id][0], elements[id][1], details);
     });
