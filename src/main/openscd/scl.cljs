@@ -1,7 +1,7 @@
 (ns openscd.scl
   (:require ["@openenergytools/scl-lib/dist/tBaseElement/identity.js" :rename
              {identity id}]
-            [clojure.string :refer [blank? trim split replace]]
+            [clojure.string :refer [blank? trim split replace join]]
             [clojure.data :refer [diff]]
             [clojure.set :refer [difference]]))
 
@@ -314,7 +314,7 @@
 (def fcda-references
   (fn [{:keys [content],
         {:keys [ldInst prefix lnClass lnInst doName daName]} :attrs,
-        ; TODO: add fc and ix
+        ; TODO(ca-d): add fc and ix?
         :as description}]
     (let [element (::element (meta description))
           SCL (.closest element "SCL")
@@ -341,6 +341,10 @@
                              (split doName #"\."))
           DO (.querySelector LNType
                              (str "DO[name='" (first do-name-segments) "']"))
+          DOI (when DO
+                (.querySelector
+                  LN
+                  (str ":scope > DOI[name='" (first do-name-segments) "']")))
           DOType (when DO
                    (.querySelector SCL
                                    (str "DataTypeTemplates DOType[id='"
@@ -391,7 +395,8 @@
           child (first (filter identity
                          [bda-type DAType sdo-type DOType LNType]))]
       (if child
-        (assoc description :content (conj content (domToEdn child)))
+        (assoc description
+          :content (conj content (domToEdn child) (domToEdn DOI)))
         description))))
 
 (def special-references {:FCDA fcda-references})
@@ -626,32 +631,42 @@
                      (.appendChild details span)
                      (after-next-paint
                        (fn []
-                         (let [their-identified-nodes
-                                 (group-by tag-and-id (:content theirs))
-                               our-identified-nodes (group-by tag-and-id
-                                                              (:content ours))
-                               node-pairs (filter #(= (count %) 2)
-                                            (vals (merge-with
-                                                    concat
-                                                    their-identified-nodes
-                                                    our-identified-nodes)))
-                               their-identities (set (keys
-                                                       their-identified-nodes))
-                               our-identities (set (keys our-identified-nodes))
-                               their-nodes
-                                 (map #(first (their-identified-nodes %))
+                         (let [their-identified-elements
+                                 (group-by tag-and-id
+                                           (filter :tag (:content theirs)))
+                               our-identified-elements
+                                 (group-by tag-and-id
+                                           (filter :tag (:content ours)))
+                               element-pairs
+                                 (filter #(and (= (count %) 2)
+                                               (not= (first %) (second %)))
+                                   (vals (merge-with concat
+                                                     their-identified-elements
+                                                     our-identified-elements)))
+                               their-identities
+                                 (set (keys their-identified-elements))
+                               our-identities (set (keys
+                                                     our-identified-elements))
+                               their-elements
+                                 (map #(first (their-identified-elements %))
                                    (difference their-identities our-identities))
-                               our-nodes (map #(first (our-identified-nodes %))
-                                           (difference our-identities
-                                                       their-identities))
-                               child-count (+ (count (filter #(:tag (first %))
-                                                       node-pairs))
-                                              (count their-nodes)
-                                              (count our-nodes))
+                               our-elements
+                                 (map #(first (our-identified-elements %))
+                                   (difference our-identities their-identities))
+                               child-count (+ (count element-pairs)
+                                              (count their-elements)
+                                              (count our-elements))
+                               elements (sort-by #(or (tag-and-id %)
+                                                      (tag-and-id (first %)))
+                                                 (concat element-pairs
+                                                         their-elements
+                                                         our-elements))
                                nodes
-                                 (sort-by
-                                   #(or (tag-and-id %) (tag-and-id (first %)))
-                                   (concat node-pairs their-nodes our-nodes))]
+                                 (conj
+                                   elements
+                                   [(join " " (filter string? (:content ours)))
+                                    (join " "
+                                          (filter string? (:content theirs)))])]
                            (run! (fn [node-or-pair]
                                    (if (:tag node-or-pair)
                                      (render-node node-or-pair
