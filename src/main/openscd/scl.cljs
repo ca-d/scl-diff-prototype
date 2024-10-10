@@ -319,13 +319,15 @@
     (let [element (::element (meta description))
           SCL (.closest element "SCL")
           IED (.closest element "IED")
+          prefix-selector (when-not (blank? prefix)
+                            (str "[prefix='" prefix "']"))
           selector (if (= lnClass "LLN0")
                      (str "LDevice[inst='" ldInst "'] LN0[inst='" lnInst "']")
                      (str "LDevice[inst='"
                           ldInst
-                          "'] LN[prefix='"
-                          prefix
-                          "'][inst='"
+                          "'] LN"
+                          prefix-selector
+                          "[inst='"
                           lnInst
                           "'][lnClass='"
                           lnClass
@@ -339,10 +341,11 @@
                              (split doName #"\."))
           DO (.querySelector LNType
                              (str "DO[name='" (first do-name-segments) "']"))
-          DOType (.querySelector SCL
-                                 (str "DataTypeTemplates DOType[id='"
-                                      (.getAttribute DO "type")
-                                      "']"))
+          DOType (when DO
+                   (.querySelector SCL
+                                   (str "DataTypeTemplates DOType[id='"
+                                        (.getAttribute DO "type")
+                                        "']")))
           sdo-type (:sdo-type
                      ((fn [{:keys [sdo-type names]}]
                         (when-not (nil? sdo-type)
@@ -364,7 +367,6 @@
           DA (when sdo-type
                (.querySelector sdo-type
                                (str "DA[name='" (first da-name-segments) "']")))
-          ;_ (.log js/console (str da-name-segments) DA sdo-type)
           DAType (when DA
                    (.querySelector SCL
                                    (str "DataTypeTemplates DAType[id='"
