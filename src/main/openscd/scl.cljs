@@ -2,7 +2,6 @@
   (:require ["@openenergytools/scl-lib/dist/tBaseElement/identity.js" :rename
              {identity id}]
             [clojure.string :refer [blank? trim split replace join]]
-            [clojure.data :refer [diff]]
             [clojure.set :refer [difference]]))
 
 (defn after-next-paint [f] (js/requestAnimationFrame (fn [] (js/setTimeout f))))
@@ -42,14 +41,6 @@
                  :to ":scope>DataSet",
                  :from ":scope>LogControl",
                  :scope "LN0"}],
-   ;   :FCDA [{:fields [{:to "inst", :from "ldInst"}],
-   ;           :to ":scope>AccessPoint>Server>LDevice", :from
-   ;           ":scope>AccessPoint>Server>LDevice>LN>DataSet>FCDA",
-   ;           :scope "IED"}
-   ;          {:fields [{:to "inst", :from "ldInst"}],
-   ;           :to ":scope>AccessPoint>Server>LDevice", :from
-   ;           ":scope>AccessPoint>Server>LDevice>LN0>DataSet>FCDA",
-   ;           :scope "IED"}],
    ; :ConnectedAP [{:fields [{:to "name", :from "iedName"}],
    ;                :to ":scope>IED", :from
    ;                ":scope>Communication>SubNetwork>ConnectedAP", :scope
@@ -315,7 +306,7 @@
   (fn [{:keys [content],
         {:keys [ldInst prefix lnClass lnInst doName daName]} :attrs,
         ; TODO(ca-d): add fc and ix?
-        :as description}]
+        :as description} & {:keys [deep], :as opts}]
     (let [element (::element (meta description))
           SCL (.closest element "SCL")
           IED (.closest element "IED")
@@ -345,6 +336,20 @@
                 (.querySelector
                   LN
                   (str ":scope > DOI[name='" (first do-name-segments) "']")))
+          SDI (:sdi ((fn [{:keys [sdi names]}]
+                       (when-not (nil? sdi)
+                         (let [new-sdi (.querySelector sdi
+                                                       (str ":scope >SDI[name='"
+                                                            (first names)
+                                                            "']"))]
+                           (if (or (nil? new-sdi) (empty? (rest names)))
+                             {:sdi sdi, :names (rest names)}
+                             (recur {:sdi new-sdi, :names (rest names)})))))
+                      {:sdi DOI, :names (rest do-name-segments)}))
+          DAI (when SDI
+                (.querySelector
+                  SDI
+                  (str ":scope DAI[name='" (last do-name-segments) "']")))
           DOType (when DO
                    (.querySelector SCL
                                    (str "DataTypeTemplates DOType[id='"
@@ -384,27 +389,32 @@
                                       (str "BDA[name='" (first names) "']"))]
                             (if (nil? bda)
                               {:bda-type bda-type, :names (rest names)}
-                              (recur {:bda-type
-                                        (.querySelector
-                                          SCL
-                                          (str "DataTypeTemplates DAType[id='"
-                                               (.getAttribute bda "type")
-                                               "'] BDA")),
-                                      :names (rest names)})))))
+                              (recur
+                                {:bda-type
+                                   (.querySelector
+                                     SCL
+                                     (str
+                                       "DataTypeTemplates DAType[id='"
+                                         (.getAttribute bda "type")
+                                       "'] BDA, DataTypeTemplates EnumType[id='"
+                                         (.getAttribute bda "type"))),
+                                 :names (rest names)})))))
                        {:bda-type DAType, :names (rest da-name-segments)}))
-          child (first (filter identity
-                         [bda-type DAType sdo-type DOType LNType]))]
-      (if child
-        (assoc description
-          :content (conj content (domToEdn child) (domToEdn DOI)))
+          linked-type (first (filter identity
+                               [bda-type DAType sdo-type DOType LNType]))
+          extra-content (map #(domToEdn % opts)
+                          (filter identity [(and deep linked-type) DAI]))
+          new-content (into content extra-content)]
+      (if (count extra-content)
+        (assoc description :content new-content)
         description))))
 
 (def special-references {:FCDA fcda-references})
 
 (defn with-references
-  [element]
+  [element opts]
   (if (contains? special-references (keyword (:tag element)))
-    ((get special-references (keyword (:tag element))) element)
+    ((get special-references (keyword (:tag element))) element opts)
     (if (contains? schema-references (keyword (:tag element)))
       (with-schema-references element)
       element)))
@@ -414,13 +424,13 @@
 
 (def ^:export domToEdn
   (memoize
-    (fn [dom]
+    (fn [dom & {:keys [deep], :or {deep false}, :as opts}]
       (if dom
         (condp = (.-nodeType dom)
           3 (trim (.-textContent dom)) ; text
           4 (.-data dom) ; CDATA
-          9 (recur (.-documentElement dom)) ; document
-          1 (when (not= (.-tagName dom) "DataTypeTemplates")
+          9 (recur (.-documentElement dom) opts) ; document
+          1 (when (or deep (not= (.-tagName dom) "DataTypeTemplates"))
               (-> ^{::element dom}
                   {:tag (.-tagName dom),
                    :attrs (apply sorted-map ; FIXME: Do we need to sort?
@@ -428,10 +438,11 @@
                                                   (.-value a)])
                                    (.-attributes dom))),
                    :content (set (filter #(not (or (nil? %) (blank? %)))
-                                   (map domToEdn (.-childNodes dom))))}
+                                   (map #(domToEdn % opts)
+                                     (.-childNodes dom))))}
                   with-defaults
                   without-identifiers
-                  with-references)) ; element
+                  (with-references opts))) ; element
           nil)
         nil))))
 
@@ -689,13 +700,9 @@
   (when-not (= edn1 edn2) (render-node-diff edn1 edn2 target)))
 
 (defn ^:export sclDomDiff
-  [dom1 dom2 target]
-  (let [edn1 (domToEdn dom1)
-        edn2 (domToEdn dom2)]
+  [dom1 dom2 target & {:as opts}]
+  (let [edn1 (domToEdn dom1 opts)
+        edn2 (domToEdn dom2 opts)]
     (show-diff edn1 edn2 target)))
 
-(defn ^:export sclDomToEdn
-  [dom]
-  (-> dom
-      domToEdn
-      show-data))
+(defn ^:export sclDomToEdn [dom & {:as opts}] (domToEdn dom opts))
