@@ -23,7 +23,11 @@
         <option value="SCL" selected>SCL</option>
       </select>
     </td>
-    <td><a href="#" onclick="diffDocs()">diff</a></td>
+    <td>
+      <a href="#" onclick="diffDocs()">diff</a>
+      <label>deep <input type="checkbox" id="deep" onchange="deep = !deep"
+        /></label>
+    </td>
   </tr>
 </table>
 
@@ -33,6 +37,7 @@
 
   window.files = [];
   window.docs = [];
+  window.deep = false;
   const doc1select = document.getElementById("doc1");
   const doc2select = document.getElementById("doc2");
   const tagselect = document.getElementById("tag");
@@ -74,7 +79,7 @@
     const heading = document.createElement("h2");
     heading.textContent = files[doc1select.value].name;
     document.querySelector("body").append(heading);
-    const d = m.sclDomToEdn(docs[doc1select.value]);
+    const d = m.sclDomToEdn(docs[doc1select.value], deep);
     console.timeEnd(`describe ${files[doc1select.value].name} ${runs}`);
   };
 
@@ -110,7 +115,7 @@
 
     console.time(`diff ${files[doc1select.value].name} -> ${files[doc2select.value].name} ${++runs}`);
     Object.keys(elements).forEach(id => {
-      m.sclDomDiff(elements[id][0], elements[id][1], details);
+      m.sclDomDiff(elements[id][0], elements[id][1], details, deep);
     });
     console.timeEnd(`diff ${files[doc1select.value].name} -> ${files[doc2select.value].name} ${runs}`);
   };
