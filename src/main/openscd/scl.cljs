@@ -62,11 +62,6 @@
    ;               :to ":scope>Substation, :scope>Process,
    ;               :scope>Line", :from ":scope Terminal", :scope
    ;               "SCL"}],
-   ; :LN0 [{:fields [{:to "id", :from "lnType"} {:to "lnClass", :from
-   ; "lnClass"}],
-   ;        :to ":scope>DataTypeTemplates>LNodeType",
-   ;        :from ":scope>IED>AccessPoint>Server>LDevice>LN0",
-   ;        :scope "SCL"}],
    :SampledValueControl [{:fields [{:to "name", :from "datSet"}],
                           :to ":scope>DataSet",
                           :from ":scope>SampledValueControl",
@@ -86,18 +81,21 @@
                    {:fields [{:to "name", :from "datSet"}],
                     :to ":scope>DataSet",
                     :from ":scope>ReportControl",
-                    :scope "LN0"}]
-   ; :LN [{:fields [{:to "id", :from "lnType"} {:to "lnClass", :from
-   ; "lnClass"}],
-   ;       :to ":scope>DataTypeTemplates>LNodeType",
-   ;       :from ":scope>IED>AccessPoint>LN",
-   ;       :scope "SCL"}
-   ;      {:fields [{:to "id", :from "lnType"} {:to "lnClass", :from
-   ;      "lnClass"}],
-   ;       :to ":scope>DataTypeTemplates>LNodeType", :from
-   ;       ":scope>IED>AccessPoint>Server>LDevice>LN",
-   ;       :scope "SCL"}]})
-  })
+                    :scope "LN0"}]})
+
+(def deep-schema-references
+  {:LN0 [{:fields [{:to "id", :from "lnType"} {:to "lnClass", :from "lnClass"}],
+          :to ":scope>DataTypeTemplates>LNodeType",
+          :from ":scope>IED>AccessPoint>Server>LDevice>LN0",
+          :scope "SCL"}],
+   :LN [{:fields [{:to "id", :from "lnType"} {:to "lnClass", :from "lnClass"}],
+         :to ":scope>DataTypeTemplates>LNodeType",
+         :from ":scope>IED>AccessPoint>LN",
+         :scope "SCL"}
+        {:fields [{:to "id", :from "lnType"} {:to "lnClass", :from "lnClass"}],
+         :to ":scope>DataTypeTemplates>LNodeType",
+         :from ":scope>IED>AccessPoint>Server>LDevice>LN",
+         :scope "SCL"}]})
 
 (def defaults
   {:AccessPoint {:clock "false", :desc "", :kdc "false", :router "false"},
@@ -302,6 +300,17 @@
     (assoc element
       :content (when (or content referents) (into content referents)))))
 
+(defn with-deep-schema-references
+  [{:keys [tag content], :as element}]
+  (let [refs (get deep-schema-references (keyword tag))
+        referents (map domToEdn
+                    (filter (complement nil?)
+                      (flatten
+                        (map tos refs (repeat (::element (meta element)))))))]
+    (assoc element
+      :content (when (or content referents) (into content referents)))))
+
+
 (def fcda-references
   (fn [{:keys [content],
         {:keys [ldInst prefix lnClass lnInst doName daName]} :attrs,
@@ -417,7 +426,10 @@
     ((get special-references (keyword (:tag element))) element opts)
     (if (contains? schema-references (keyword (:tag element)))
       (with-schema-references element)
-      element)))
+      (if (and (:deep opts)
+               (contains? deep-schema-references (keyword (:tag element))))
+        (with-deep-schema-references element)
+        element))))
 
 (defrecord Elm [^js/String tag ^PersistentTreeMap attrs
                 ^PersistentHashSet content])
@@ -700,9 +712,9 @@
   (when-not (= edn1 edn2) (render-node-diff edn1 edn2 target)))
 
 (defn ^:export sclDomDiff
-  [dom1 dom2 target & {:as opts}]
-  (let [edn1 (domToEdn dom1 opts)
-        edn2 (domToEdn dom2 opts)]
+  [dom1 dom2 target deep]
+  (let [edn1 (domToEdn dom1 {:deep deep})
+        edn2 (domToEdn dom2 {:deep deep})]
     (show-diff edn1 edn2 target)))
 
-(defn ^:export sclDomToEdn [dom & {:as opts}] (domToEdn dom opts))
+(defn ^:export sclDomToEdn [dom deep] (show-data (domToEdn dom {:deep deep})))
